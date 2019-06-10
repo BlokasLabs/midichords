@@ -80,6 +80,8 @@ void loadFromEEPROM()
 		for (uint8_t i=0; i<MAX_NOTES; ++i)
 		{
 			g_semitones[i] = EEPROM.read(EEPROM_NOTES_ADDRESS + i);
+			if (g_semitones[i] == -128)
+				g_semitones[i] = -127;
 		}
 	}
 	else

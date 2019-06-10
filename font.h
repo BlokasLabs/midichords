@@ -1,6 +1,6 @@
 /*
- * orac-controller - Midiboy sketch for controlling Orac (https://github.com/TheTechnobear/Orac)
- * Copyright (C) 2019  Vilniaus Blokas UAB, https://blokas.io/
+ * Midichords - Midiboy Note To Chord sketch
+ * Copyright (C) 2019  Vilniaus Blokas UAB, https://blokas.io/midiboy
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License

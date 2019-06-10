@@ -20,6 +20,7 @@
 #include <usbmidi.h>
 #include <fifo.h>
 #include <midi_serialization.h>
+#include <EEPROM.h>
 #include "input.h"
 #include "SH1106.h"
 #include "font.h"
@@ -28,6 +29,14 @@
 
 #define FONT_WIDTH FONT_5X7_WIDTH
 #define FONT FONT_5X7
+
+enum { MAX_NOTES = 5 };
+
+enum { EEPROM_SAVE_START_ADDRESS = 20 };
+enum { EEPROM_MAGIC_VALUE = 0x59 }; // Arbitrary number.
+enum { EEPROM_MAGIC_ADDRESS = EEPROM_SAVE_START_ADDRESS + 0 };
+enum { EEPROM_NOTES_ADDRESS = EEPROM_SAVE_START_ADDRESS + 1 };
+
 
 enum Arrow
 {
@@ -53,15 +62,40 @@ typedef TFifo<midi_event_t, uint8_t, 128> fifo_t;
 fifo_t g_outputQueue;
 MidiToUsb g_decoder[DECODER_COUNT];
 
-enum { MAX_NOTES = 5 };
-
 int8_t g_semitones[MAX_NOTES];
 uint16_t g_channelsHadActivity;
 uint8_t g_selected = 0;
 
+void loadFromEEPROM()
+{
+	if (EEPROM.read(EEPROM_MAGIC_ADDRESS) == EEPROM_MAGIC_VALUE)
+	{
+		for (uint8_t i=0; i<MAX_NOTES; ++i)
+		{
+			g_semitones[i] = EEPROM.read(EEPROM_NOTES_ADDRESS + i);
+		}
+	}
+	else
+	{
+		memset(g_semitones, 0, sizeof(g_semitones));
+	}
+}
+
+void saveToEEPROM()
+{
+	for (uint8_t i=0; i<MAX_NOTES; ++i)
+	{
+		EEPROM.update(EEPROM_NOTES_ADDRESS + i, g_semitones[i]);
+	}
+	EEPROM.update(EEPROM_MAGIC_ADDRESS, EEPROM_MAGIC_VALUE);
+}
+
 void setup()
 {
 	sh1106_init(SS, PIN_LCD_DC, PIN_LCD_RESET);
+
+	loadFromEEPROM();
+
 	print(22, 0, "Note To Chord:", 14, 128, false);
 
 	input_init();
@@ -70,16 +104,14 @@ void setup()
 	g_decoder[DECODER_MIDI].setCable(DECODER_MIDI);
 	g_decoder[DECODER_USB].setCable(DECODER_USB);
 
-	g_semitones[0] = -1;
-	g_semitones[1] = 3;
-	g_semitones[4] = 7;
-
 	Serial.begin(31250);
 	for (uint8_t i=0; i<MAX_NOTES; ++i)
 	{
 		drawSemitones(i);
 	}
 	drawArrows(g_selected);
+
+	print(10, 7, "A: Save, B: Reload.", 19, 128, false);
 }
 
 void print(uint8_t x, uint8_t line, const char *text, uint8_t n, uint8_t maxWidth, bool inverted)
@@ -367,6 +399,18 @@ void loop()
 					clearAllNotes(g_outputQueue);
 					drawSemitones(g_selected);
 					drawArrows(g_selected);
+				}
+				break;
+			case BUTTON_A:
+				saveToEEPROM();
+				break;
+			case BUTTON_B:
+				loadFromEEPROM();
+				clearAllNotes(g_outputQueue);
+				for (uint8_t i=0; i<MAX_NOTES; ++i)
+				{
+					drawArrows(i);
+					drawSemitones(i);
 				}
 				break;
 			}

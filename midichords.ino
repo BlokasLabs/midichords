@@ -58,6 +58,13 @@ enum DecoderId
 };
 
 typedef TFifo<midi_event_t, uint8_t, 128> fifo_t;
+enum Status
+{
+	STATUS_INFO     = 0,
+	STATUS_SAVED    = 1,
+	STATUS_RELOADED = 2,
+};
+
 
 fifo_t g_outputQueue;
 MidiToUsb g_decoder[DECODER_COUNT];
@@ -90,6 +97,25 @@ void saveToEEPROM()
 	EEPROM.update(EEPROM_MAGIC_ADDRESS, EEPROM_MAGIC_VALUE);
 }
 
+void printStatus(Status status)
+{
+	switch (status)
+	{
+	case STATUS_INFO:
+		printSpace(0, 7, 10, false);
+		print(10, 7, "A: Save, B: Reload.", 19, 128, false);
+		break;
+	case STATUS_SAVED:
+		printSpace(0, 7, 49, false);
+		print(49, 7, "Saved.", 6, 128, false);
+		break;
+	case STATUS_RELOADED:
+		printSpace(0, 7, 40, false);
+		print(40, 7, "Reloaded.", 9, 128, false);
+		break;
+	}
+}
+
 void setup()
 {
 	sh1106_init(SS, PIN_LCD_DC, PIN_LCD_RESET);
@@ -111,7 +137,7 @@ void setup()
 	}
 	drawArrows(g_selected);
 
-	print(10, 7, "A: Save, B: Reload.", 19, 128, false);
+	printStatus(STATUS_INFO);
 }
 
 void print(uint8_t x, uint8_t line, const char *text, uint8_t n, uint8_t maxWidth, bool inverted)
@@ -349,6 +375,8 @@ void drawArrows(uint8_t i)
 	}
 }
 
+unsigned long g_eventAt = 0;
+
 void loop()
 {
 	processStream(g_outputQueue, g_decoder[DECODER_USB], USBMIDI);
@@ -403,6 +431,8 @@ void loop()
 				break;
 			case BUTTON_A:
 				saveToEEPROM();
+				printStatus(STATUS_SAVED);
+				g_eventAt = millis() + 1000;
 				break;
 			case BUTTON_B:
 				loadFromEEPROM();
@@ -412,9 +442,17 @@ void loop()
 					drawArrows(i);
 					drawSemitones(i);
 				}
+				printStatus(STATUS_RELOADED);
+				g_eventAt = millis() + 1000;
 				break;
 			}
 		}
+	}
+
+	if (g_eventAt && millis() >= g_eventAt)
+	{
+		g_eventAt = 0;
+		printStatus(STATUS_INFO);
 	}
 
 	USBMIDI.poll();

@@ -88,6 +88,7 @@ void input_init()
 	{
 		pinMode(p, INPUT_PULLUP);
 	}
+
 	for (int i=0; i<BUTTON_COUNT; ++i)
 	{
 		g_lastUpdated[i] = millis();

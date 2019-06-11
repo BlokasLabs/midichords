@@ -58,6 +58,7 @@ enum DecoderId
 };
 
 typedef TFifo<midi_event_t, uint8_t, 128> fifo_t;
+
 enum Status
 {
 	STATUS_INFO     = 0,
@@ -70,7 +71,7 @@ fifo_t g_outputQueue;
 MidiToUsb g_decoder[DECODER_COUNT];
 
 int8_t g_semitones[MAX_NOTES];
-uint16_t g_channelsHadActivity;
+uint16_t g_channelsHadActivity = 0;
 uint8_t g_selected = 0;
 
 void loadFromEEPROM()
@@ -383,7 +384,6 @@ void loop()
 {
 	processStream(g_outputQueue, g_decoder[DECODER_USB], USBMIDI);
 	processStream(g_outputQueue, g_decoder[DECODER_MIDI], Serial);
-	flushOutput(g_outputQueue);
 
 	input_update();
 	InputEvent event;
@@ -457,5 +457,6 @@ void loop()
 		printStatus(STATUS_INFO);
 	}
 
+	flushOutput(g_outputQueue);
 	USBMIDI.poll();
 }

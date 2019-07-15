@@ -22,9 +22,6 @@
 #include <fifo.h>
 #include <EEPROM.h>
 
-#include "font.h"
-
-#define FONT_WIDTH FONT_5X7_WIDTH
 #define FONT FONT_5X7
 
 enum { MAX_NOTES = 5 };
@@ -139,7 +136,7 @@ void setup()
 void print(uint8_t x, uint8_t line, const char *text, uint8_t n, uint8_t maxWidth, bool inverted)
 {
 	Midiboy.setDrawPosition(x, 7-(line&7));
-	uint8_t width = min(n*(FONT_WIDTH+1), maxWidth);
+	uint8_t width = min(n*(FONT::WIDTH+1), maxWidth);
 	uint8_t spaces = maxWidth - width;
 	uint8_t counter = 0;
 	const uint8_t *p = NULL;
@@ -148,9 +145,9 @@ void print(uint8_t x, uint8_t line, const char *text, uint8_t n, uint8_t maxWidt
 		switch (counter)
 		{
 		case 0:
-			p = &FONT[(*text++ - ' ') * FONT_WIDTH];
+			p = &FONT::DATA_P[(*text++ - ' ') * FONT::WIDTH];
 			break;
-		case FONT_WIDTH:
+		case FONT::WIDTH:
 			Midiboy.drawSpace(1, inverted);
 			--n;
 			counter = 0;

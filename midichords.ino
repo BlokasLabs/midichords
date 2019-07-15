@@ -17,15 +17,12 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <usbmidi.h>
-#include <fifo.h>
+#include <Midiboy.h>
 #include <midi_serialization.h>
+#include <fifo.h>
 #include <EEPROM.h>
-#include "input.h"
-#include "SH1106.h"
-#include "font.h"
 
-#include "usbdrv.h"
+#include "font.h"
 
 #define FONT_WIDTH FONT_5X7_WIDTH
 #define FONT FONT_5X7
@@ -36,7 +33,6 @@ enum { EEPROM_SAVE_START_ADDRESS = 20 };
 enum { EEPROM_MAGIC_VALUE = 0x59 }; // Arbitrary number.
 enum { EEPROM_MAGIC_ADDRESS = EEPROM_SAVE_START_ADDRESS + 0 };
 enum { EEPROM_NOTES_ADDRESS = EEPROM_SAVE_START_ADDRESS + 1 };
-
 
 enum Arrow
 {
@@ -121,19 +117,16 @@ void printStatus(Status status)
 
 void setup()
 {
-	sh1106_init(SS, PIN_LCD_DC, PIN_LCD_RESET);
+	Midiboy.begin();
+	Midiboy.setButtonRepeatMs(50);
 
 	loadFromEEPROM();
 
 	print(22, 0, "Note To Chord:", 14, 128, false);
 
-	input_init();
-	input_set_repeat_ms(50);
-
 	g_decoder[DECODER_MIDI].setCable(DECODER_MIDI);
 	g_decoder[DECODER_USB].setCable(DECODER_USB);
 
-	Serial.begin(31250);
 	for (uint8_t i=0; i<MAX_NOTES; ++i)
 	{
 		drawSemitones(i);
@@ -145,7 +138,7 @@ void setup()
 
 void print(uint8_t x, uint8_t line, const char *text, uint8_t n, uint8_t maxWidth, bool inverted)
 {
-	sh1106_set_position(x, 7-(line&7));
+	Midiboy.setDrawPosition(x, 7-(line&7));
 	uint8_t width = min(n*(FONT_WIDTH+1), maxWidth);
 	uint8_t spaces = maxWidth - width;
 	uint8_t counter = 0;
@@ -158,7 +151,7 @@ void print(uint8_t x, uint8_t line, const char *text, uint8_t n, uint8_t maxWidt
 			p = &FONT[(*text++ - ' ') * FONT_WIDTH];
 			break;
 		case FONT_WIDTH:
-			sh1106_draw_space(1, inverted);
+			Midiboy.drawSpace(1, inverted);
 			--n;
 			counter = 0;
 			continue;
@@ -166,25 +159,25 @@ void print(uint8_t x, uint8_t line, const char *text, uint8_t n, uint8_t maxWidt
 			break;
 		}
 
-		sh1106_draw_progmem_bitmap(p++, 1, inverted);
+		Midiboy.drawBitmap_P(p++, 1, inverted);
 		++counter;
 	}
 	if (spaces > 0)
 	{
-		sh1106_draw_space(spaces, inverted);
+		Midiboy.drawSpace(spaces, inverted);
 	}
 }
 
 void printArrow(uint8_t x, uint8_t line, Arrow arrow, bool inverted)
 {
-	sh1106_set_position(x, 7-(line&7));
-	sh1106_draw_progmem_bitmap(ARROW[arrow], 5, inverted);
+	Midiboy.setDrawPosition(x, 7-(line&7));
+	Midiboy.drawBitmap_P(ARROW[arrow], 5, inverted);
 }
 
 void printSpace(uint8_t x, uint8_t line, uint8_t w, bool inverted)
 {
-	sh1106_set_position(x, 7-(line&7));
-	sh1106_draw_space(w, inverted);
+	Midiboy.setDrawPosition(x, 7-(line&7));
+	Midiboy.drawSpace(w, inverted);
 }
 
 void printSemitones(uint8_t x, uint8_t line, int8_t semitones, bool inverted)
@@ -210,7 +203,7 @@ void printSemitones(uint8_t x, uint8_t line, int8_t semitones, bool inverted)
 
 void clearScreen()
 {
-	sh1106_clear();
+	Midiboy.clearScreen();
 }
 
 bool midi_is_note_on(const midi_event_t &event)
@@ -335,8 +328,8 @@ void flushOutput(fifo_t &outputQueue)
 		uint8_t n = UsbToMidi::process(event, msg);
 		for (uint8_t i=0; i<n; ++i)
 		{
-			USBMIDI.write(msg[i]);
-			Serial.write(msg[i]);
+			Midiboy.usbMidi().write(msg[i]);
+			Midiboy.dinMidi().write(msg[i]);
 		}
 	}
 }
@@ -363,13 +356,14 @@ void drawArrows(uint8_t i)
 	if (selected)
 	{
 		uint8_t w = (digitCount(g_semitones[i])+1)*6;
-		uint8_t x = 2 + (i+1)*24 - w / 2-3;
-		printSpace(2+i*24, 3, x-2+i*24, false);
+		uint8_t x = 2 + (i+1)*24 - w/2 - 3;
+		printSpace(2+i*24, 3, x-2-i*24, false);
 		printArrow(x, 3, ARROW_UP, false);
-		printSpace(x+5, 3, x-2+(i+1)*24 - x-5, false);
-		printSpace(2+i*24, 5, x-2+i*24, false);
+		printSpace(x+5, 3, 2+(i+1)*24-x-5, false);
+
+		printSpace(2+i*24, 5, x-2-i*24, false);
 		printArrow(x, 5, ARROW_DOWN, false);
-		printSpace(x+5, 5, x-2+(i+1)*24 - x-5, false);
+		printSpace(x+5, 5, 2+(i+1)*24-x-5, false);
 	}
 	else
 	{
@@ -382,14 +376,14 @@ unsigned long g_eventAt = 0;
 
 void loop()
 {
-	processStream(g_outputQueue, g_decoder[DECODER_USB], USBMIDI);
-	processStream(g_outputQueue, g_decoder[DECODER_MIDI], Serial);
+	Midiboy.think();
+	processStream(g_outputQueue, g_decoder[DECODER_USB], Midiboy.usbMidi());
+	processStream(g_outputQueue, g_decoder[DECODER_MIDI], Midiboy.dinMidi());
 
-	input_update();
 	InputEvent event;
-	while (input_get_event(event))
+	while (Midiboy.readInputEvent(event))
 	{
-		if (event.m_event == EVENT_DOWN)
+		if (event.m_type == EVENT_DOWN)
 		{
 			switch (event.m_button)
 			{
@@ -458,5 +452,4 @@ void loop()
 	}
 
 	flushOutput(g_outputQueue);
-	USBMIDI.poll();
 }

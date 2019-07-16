@@ -22,7 +22,7 @@
 #include <fifo.h>
 #include <EEPROM.h>
 
-#define FONT FONT_5X7
+#define FONT MIDIBOY_FONT_5X7
 
 enum { MAX_NOTES = 5 };
 
@@ -377,14 +377,14 @@ void loop()
 	processStream(g_outputQueue, g_decoder[DECODER_USB], Midiboy.usbMidi());
 	processStream(g_outputQueue, g_decoder[DECODER_MIDI], Midiboy.dinMidi());
 
-	InputEvent event;
+	MidiboyInput::Event event;
 	while (Midiboy.readInputEvent(event))
 	{
-		if (event.m_type == EVENT_DOWN)
+		if (event.m_type == MidiboyInput::EVENT_DOWN)
 		{
 			switch (event.m_button)
 			{
-			case BUTTON_RIGHT:
+			case MidiboyInput::BUTTON_RIGHT:
 				if (g_selected < MAX_NOTES-1)
 				{
 					++g_selected;
@@ -394,7 +394,7 @@ void loop()
 					drawSemitones(g_selected);
 				}
 				break;
-			case BUTTON_LEFT:
+			case MidiboyInput::BUTTON_LEFT:
 				if (g_selected > 0)
 				{
 					--g_selected;
@@ -404,7 +404,7 @@ void loop()
 					drawSemitones(g_selected);
 				}
 				break;
-			case BUTTON_UP:
+			case MidiboyInput::BUTTON_UP:
 				if (g_semitones[g_selected] < 127)
 				{
 					++g_semitones[g_selected];
@@ -413,7 +413,7 @@ void loop()
 					drawArrows(g_selected);
 				}
 				break;
-			case BUTTON_DOWN:
+			case MidiboyInput::BUTTON_DOWN:
 				if (g_semitones[g_selected] > -127)
 				{
 					--g_semitones[g_selected];
@@ -422,12 +422,12 @@ void loop()
 					drawArrows(g_selected);
 				}
 				break;
-			case BUTTON_A:
+			case MidiboyInput::BUTTON_A:
 				saveToEEPROM();
 				printStatus(STATUS_SAVED);
 				g_eventAt = millis() + 1000;
 				break;
-			case BUTTON_B:
+			case MidiboyInput::BUTTON_B:
 				loadFromEEPROM();
 				clearAllNotes(g_outputQueue);
 				for (uint8_t i=0; i<MAX_NOTES; ++i)

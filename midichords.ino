@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <usbmidi.h>
 #include <Midiboy.h>
 #include <midi_serialization.h>
 #include <fifo.h>
@@ -59,6 +60,7 @@ enum Status
 	STATUS_RELOADED = 2,
 };
 
+bool g_usbSuspended = false;
 
 fifo_t g_outputQueue;
 MidiToUsb g_decoder[DECODER_COUNT];
@@ -112,10 +114,17 @@ void printStatus(Status status)
 	}
 }
 
+void onUsbSuspended(bool suspended)
+{
+	g_usbSuspended = suspended;
+}
+
 void setup()
 {
 	Midiboy.begin();
 	Midiboy.setButtonRepeatMs(50);
+
+	USBMIDI.setSuspendResumeCallback(&onUsbSuspended);
 
 	loadFromEEPROM();
 
@@ -325,7 +334,8 @@ void flushOutput(fifo_t &outputQueue)
 		uint8_t n = UsbToMidi::process(event, msg);
 		for (uint8_t i=0; i<n; ++i)
 		{
-			Midiboy.usbMidi().write(msg[i]);
+			if (!g_usbSuspended)
+				Midiboy.usbMidi().write(msg[i]);
 			Midiboy.dinMidi().write(msg[i]);
 		}
 	}
